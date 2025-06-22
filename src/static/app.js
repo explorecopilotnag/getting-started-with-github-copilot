@@ -20,11 +20,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Create participants list with delete icons
+        const participantsList = details.participants.map(
+          (participant) => `
+            <div class="participant-item">
+              <span>${participant}</span>
+              <button class="delete-participant" data-activity="${name}" data-email="${participant}">❌</button>
+            </div>
+          `
+        ).join("");
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <h5>Participants:</h5>
+            <div>${participantsList}</div>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -50,34 +64,56 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const response = await fetch(
-        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+        `/activities/${activity}/signup?email=${email}`,
         {
           method: "POST",
         }
       );
 
-      const result = await response.json();
-
       if (response.ok) {
-        messageDiv.textContent = result.message;
+        messageDiv.textContent = "Successfully signed up!";
         messageDiv.className = "success";
-        signupForm.reset();
+
+        // Refresh activities list dynamically
+        fetchActivities();
       } else {
-        messageDiv.textContent = result.detail || "An error occurred";
+        const errorData = await response.json();
+        messageDiv.textContent = errorData.detail || "Failed to sign up.";
         messageDiv.className = "error";
       }
-
-      messageDiv.classList.remove("hidden");
-
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
     } catch (error) {
-      messageDiv.textContent = "Failed to sign up. Please try again.";
+      messageDiv.textContent = "An error occurred. Please try again later.";
       messageDiv.className = "error";
-      messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+
+    messageDiv.classList.remove("hidden");
+
+    // Hide message after 5 seconds
+    setTimeout(() => {
+      messageDiv.classList.add("hidden");
+    }, 5000);
+  });
+
+  // Add event listener for delete buttons
+  activitiesList.addEventListener("click", async (event) => {
+    if (event.target.classList.contains("delete-participant")) {
+      const activity = event.target.dataset.activity;
+      const email = event.target.dataset.email;
+
+      try {
+        const response = await fetch(`/activities/${activity}/unregister?email=${email}`, {
+          method: "POST",
+        });
+
+        if (response.ok) {
+          fetchActivities(); // Refresh activities list
+        } else {
+          console.error("Failed to unregister participant:", await response.text());
+        }
+      } catch (error) {
+        console.error("Error unregistering participant:", error);
+      }
     }
   });
 
